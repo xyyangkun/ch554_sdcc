@@ -8,11 +8,11 @@
 #include "ch554.h"
 
 #ifndef  UART0_BAUD
-#define  UART0_BAUD    9600
+#define  UART0_BAUD    115200
 #endif
 
 #ifndef UART1_BAUD
-#define  UART1_BAUD    9600
+#define  UART1_BAUD    115200
 #endif
 
 void	CfgFsys( );                       // CH554 clock selection and configuration
