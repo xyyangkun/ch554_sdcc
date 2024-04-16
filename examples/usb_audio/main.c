@@ -27,7 +27,7 @@ USB_SETUP_REQ   SetupReqBuf;												   //Temporary Setup package
 
 /* Device descriptor */
 __code uint8_t DevDesc[] = {	
-#if 1
+#if 0
 	0x12,	//Descriptor size is 18 bytes  
 	0x01,  	//DEVICE Descriptor Type  
 	0x10,0x01,  // usb1.1
@@ -50,7 +50,7 @@ __code uint8_t DevDesc[] = {
 #if 0
 __code uint8_t CfgDesc[] ={
 	
-	#if 0
+#if 0
 0x09,0x02,0x6E,0x00,0x02,0x01,0x00,0x80,0xC8,0x09,0x04,0x00,0x00,0x00,0x01,0x01,
 0x00,0x00,0x09,0x24,0x01,0x00,0x01,0x28,0x00,0x01,0x01,0x0C,0x24,0x02,0x01,0x01,
 0x01,0x00,0x02,0x03,0x00,0x00,0x00,0x0A,0x24,0x06,0x02,0x01,0x01,0x03,0x00,0x00,
@@ -177,21 +177,20 @@ __code uint8_t CfgDesc[] ={
 	0x01,  	//Delay introduced by the data path. Expressed in number of frames.  
 	0x01,0x00,//PCM  
 	
-	0x0E,  	//Size of the descriptor, in bytes  
+	0x0b,  	//Size of the descriptor, in bytes  
 	0x24,  	//CS_INTERFACE Descriptor Type  
 	0x02,  	//FORMAT_TYPE descriptor subtype  
 	0x01,  	//FORMAT_TYPE_I  
 	0x02,  	//Indicates the number of physical channels in the audio data stream.  
 	0x02,  	//The number of bytes occupied by one audio subframe. Can be 1, 2, 3 or 4.  
 	0x10,  	//The number of effectively used bits from the available bits in an audio subframe.  
-	0x02,  	//Indicates how the sampling frequency can be programmed:  
-	0x22,0x56,0x00, //	  Sampling frequency 3 in Hz for this isochronous data endpoint.  
+	0x01,   //Indicates how the sampling frequency can be programmed:
 	0x80,0xBB,0x00, //	  Sampling frequency 5 in Hz for this isochronous data endpoint.  
 	
 	
 	0x09,  	// Descriptor size is 9 bytes  
 	0x05,  	// ENDPOINT Descriptor Type  
-	0x01,  	// This is an OUT endpoint with endpoint number 1  
+	0x02,  	// This is an OUT endpoint with endpoint number 1    // 更改端点，可以为1,2
 	0x0D,  	// Types - 
 			//	Transfer: ISOCHRONOUS 
 			//	Sync: Sync 
@@ -312,9 +311,11 @@ void USBDeviceEndPointCfg()
 	UEP1_DMA = (uint16_t) Ep1Buffer;													  //端点1 发送数据传输地址
 	UEP2_DMA = (uint16_t) Ep2Buffer;													  //端点2 IN数据传输地址
 	UEP2_3_MOD = 0xCC;														 //端点2/3 单缓冲收发使能
-	UEP2_CTRL = bUEP_AUTO_TOG | UEP_T_RES_NAK | UEP_R_RES_ACK;		//端点2自动翻转同步标志位，IN事务返回NAK，OUT返回ACK
+	//UEP2_CTRL = bUEP_AUTO_TOG | UEP_T_RES_NAK | UEP_R_RES_ACK;		//端点2自动翻转同步标志位，IN事务返回NAK，OUT返回ACK
+	UEP2_CTRL = bUEP_AUTO_TOG | UEP_T_RES_TOUT;	
 
-	UEP1_CTRL = bUEP_AUTO_TOG | UEP_T_RES_NAK;				//端点1自动翻转同步标志位，IN事务返回NAK
+	// UEP1_CTRL = bUEP_AUTO_TOG | UEP_T_RES_NAK;				//端点1自动翻转同步标志位，IN事务返回NAK
+	UEP1_CTRL = bUEP_AUTO_TOG | UEP_T_RES_TOUT;
 	UEP0_DMA = (uint16_t) Ep0Buffer;													  //端点0数据传输地址
 	UEP4_1_MOD = 0X40;														 //端点1上传缓冲区；端点0单64字节收发缓冲区
 	UEP0_CTRL = UEP_R_RES_ACK | UEP_T_RES_NAK;				//手动翻转，OUT事务返回ACK，IN事务返回NAK
@@ -366,17 +367,18 @@ void DeviceInterrupt(void) __interrupt (INT_NO_USB)					   //USB中断服务程�
 			{
 				USBByteCount = USB_RX_LEN;
 				USBBufOutPoint = 0;											 //取数据指针复位
-				UEP2_CTRL = UEP2_CTRL & ~ MASK_UEP_R_RES | UEP_R_RES_NAK;	   //收到一包数据就NAK，主函数处理完，由主函数修改响应方式
+				//UEP2_CTRL = UEP2_CTRL & ~ MASK_UEP_R_RES | UEP_R_RES_NAK;	   //收到一包数据就NAK，主函数处理完，由主函数修改响应方式
 			}
 			break;
 		case UIS_TOKEN_OUT | 1:											 // yk endpoint 1# 端点批量下传
-			printf("0 yk debug endpoint 1 recv data U_TOG_OK = %d！！ %d\r\n", U_TOG_OK, USB_RX_LEN);
+			// printf("0 yk debug endpoint 1 recv data U_TOG_OK = %d！！ %d\r\n", U_TOG_OK, USB_RX_LEN);
 			if ( U_TOG_OK )													 // 不同步的数据包将丢弃
 			{
-				printf("yk debug endpoint 1 recv data！！ %d\r\n", USB_RX_LEN);
+				printf("ep1 recv len %d\r\n", USB_RX_LEN);
 				USBByteCount = USB_RX_LEN;
-				USBBufOutPoint = 0;											 //取数据指针复位
-				UEP1_CTRL = UEP1_CTRL & ~ ( bUEP_R_TOG | MASK_UEP_R_RES ) | UEP_R_RES_ACK;	   //收到一包数据， 回复ack
+				USBBufOutPoint = 0;	
+				//取数据指针复位
+				// UEP1_CTRL = UEP1_CTRL & ~ ( bUEP_R_TOG | MASK_UEP_R_RES ) | UEP_R_RES_ACK;	   //收到一包数据， 回复ack
 			}
 			break;
 		case UIS_TOKEN_SETUP | 0:												//SETUP事务
@@ -388,10 +390,15 @@ void DeviceInterrupt(void) __interrupt (INT_NO_USB)					   //USB中断服务程�
 				SetupReq = UsbSetupBuf->bRequest;
 				if ( ( UsbSetupBuf->bRequestType & USB_REQ_TYP_MASK ) != USB_REQ_TYP_STANDARD )//非标准请求
 				{
-					printf("not stand req\r\n");
+					printf("not stand req: %02x %02x %02x %02x  %02x %02x %02x %02x\r\n", Ep0Buffer[0], Ep0Buffer[1], Ep0Buffer[2], Ep0Buffer[3], 
+						Ep0Buffer[4], Ep0Buffer[5], Ep0Buffer[6], Ep0Buffer[7]);
 					switch( SetupReq )
 					{
-					
+					case 0x01:
+						printf("----> set cur!\r\n");
+						// set cur 22 01 00 01  01 00 03 00
+						len = 0;
+						break;
 					default:
 						len = 0xFF;  								 									 /*命令不支持*/
 						break;
@@ -455,7 +462,7 @@ void DeviceInterrupt(void) __interrupt (INT_NO_USB)					   //USB中断服务程�
 						pDescr += len;
 						break;
 					case USB_SET_ADDRESS:
-						printf("set address:%d\r\n", UsbSetupBuf->wValueL);
+						printf("===> set address:%d\r\n", UsbSetupBuf->wValueL);
 						SetupLen = UsbSetupBuf->wValueL;							  //暂存USB设备地址
 						break;
 					case USB_GET_CONFIGURATION:
@@ -474,7 +481,7 @@ void DeviceInterrupt(void) __interrupt (INT_NO_USB)					   //USB中断服务程�
 						printf("get interface!\r\n");
 						break;
 					case USB_SET_INTERFACE:
-						printf("set interface!\r\n");
+						printf("===> set interface!\r\n");
 						break;
 					case USB_CLEAR_FEATURE:											//Clear Feature
 						printf("===> clean feature!\r\n");
@@ -650,10 +657,10 @@ void DeviceInterrupt(void) __interrupt (INT_NO_USB)					   //USB中断服务程�
 			{
 			case USB_GET_DESCRIPTOR:
 				len = SetupLen >= DEFAULT_ENDP0_SIZE ? DEFAULT_ENDP0_SIZE : SetupLen;								 //本次传输长度
-				printf("UIS_TOKEN_IN get descript:SetupLen = %d len=%d \r\n", SetupLen, len);
+				// printf("UIS_TOKEN_IN get descript:SetupLen = %d len=%d \r\n", SetupLen, len);
 				memcpy( Ep0Buffer, pDescr, len );								   //加载上传数据
-				printf("%02x %02x %02x %02x   %02x %02x %02x %02x\r\n", Ep0Buffer[0], Ep0Buffer[1], Ep0Buffer[2], Ep0Buffer[3], 
-				Ep0Buffer[4], Ep0Buffer[5], Ep0Buffer[6], Ep0Buffer[7]);
+				// printf("%02x %02x %02x %02x   %02x %02x %02x %02x\r\n", Ep0Buffer[0], Ep0Buffer[1], Ep0Buffer[2], Ep0Buffer[3], 
+				// Ep0Buffer[4], Ep0Buffer[5], Ep0Buffer[6], Ep0Buffer[7]);
 				SetupLen -= len;
 				pDescr += len;
 				UEP0_T_LEN = len;
@@ -735,7 +742,6 @@ void DeviceInterrupt(void) __interrupt (INT_NO_USB)					   //USB中断服务程�
 			SAFE_MOD = 0x55;
 			SAFE_MOD = 0xAA;
 			WAKE_CTRL = 0x00;
-			printf( "suspend over\r\n" );
 		}
 	}
 	else {																			 //意外的中断,不可能发生的情况
@@ -787,7 +793,7 @@ main()
 	{
 		if(UsbConfig)
 		{
-			printf("send usbconfig 1 USBByteCount=%d\r\n", USBByteCount);
+			// printf("send usbconfig 1 USBByteCount=%d\r\n", USBByteCount);
 			if(USBByteCount)   //USB接收端点有数据
 			{
 				printf("send usbconfig 1 and usbbytecount=%d\r\n", USBByteCount);
@@ -795,11 +801,15 @@ main()
 				//USBByteCount--;
 				//if(USBByteCount==0)
 				memcpy(Receive_Midi_Buf, Ep2Buffer, USBByteCount);
+				// memset(Ep1Buffer, 0, USBByteCount);
 				#ifdef DE_PRINTF
-				printf("R=%d, %02x %02x %02x %02x\r\n", USBByteCount, Receive_Midi_Buf[0], Receive_Midi_Buf[1], Receive_Midi_Buf[2], Receive_Midi_Buf[3]);
+				printf("R=%d, %02x %02x %02x %02x  %02x %02x %02x %02x\r\n", USBByteCount, Receive_Midi_Buf[0], Receive_Midi_Buf[1], Receive_Midi_Buf[2], Receive_Midi_Buf[3],
+					Receive_Midi_Buf[4], Receive_Midi_Buf[5], Receive_Midi_Buf[6], Receive_Midi_Buf[7]);
 				#endif
 				
-				UEP1_CTRL = UEP1_CTRL & ~ MASK_UEP_R_RES | UEP_R_RES_ACK;
+				// UEP1_CTRL = UEP1_CTRL & ~ MASK_UEP_R_RES | UEP_R_RES_ACK;   // 这个uac无法接受数据
+				//UEP1_CTRL = UEP1_CTRL & ~ ( bUEP_R_TOG | MASK_UEP_R_RES ) | UEP_R_RES_ACK;	   //收到一包数据， 回复ackz
+				UEP2_CTRL = UEP2_CTRL & ~ ( bUEP_R_TOG | MASK_UEP_R_RES ) | UEP_R_RES_ACK;	   //收到一包数据， 回复ackz
 				length = USBByteCount;
 				USBByteCount = 0;
 
