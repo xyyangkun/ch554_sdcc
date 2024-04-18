@@ -14,6 +14,7 @@
 
 #include <ch554_usb.h>
 #include <debug.h>
+#include <bootloader.h>
 
 __xdata __at (0x0000) uint8_t  Ep0Buffer[DEFAULT_ENDP0_SIZE];	   // Endpoint 0 OUT & IN buffer, must be even address
 __xdata __at (0x0040) uint8_t  Ep1Buffer[DEFAULT_ENDP1_SIZE];	   // Endpoint 1 upload buffer
@@ -791,6 +792,25 @@ main()
 
 	while(1)
 	{
+		if(RI)
+		{
+			RI = 0;
+			// 串口接收到r后，进行烧写模式
+			if(SBUF == 'r')
+			{
+				printf("will boot to iap\r\n");
+				IE_USB = 0;
+				EA = 0;                              //Close the total interrupt, must add
+
+				USB_CTRL = 0x00;  // 清空usb配置
+				UDEV_CTRL = 0;
+
+				mDelaymS( 100 );
+				printf("will boot to iap??1\r\n");
+				bootloader();
+				while(1);
+			}
+		}
 		if(UsbConfig)
 		{
 			// printf("send usbconfig 1 USBByteCount=%d\r\n", USBByteCount);
