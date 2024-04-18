@@ -769,6 +769,10 @@ void Uart1_ISR(void) __interrupt (INT_NO_UART1)
 }
 #endif
 
+// 控制P32输出
+#define LED_PIN 2
+SBIT(LED, 0xB0, LED_PIN);
+
 //主函数
 main()
 {
@@ -782,6 +786,11 @@ main()
 #ifdef DE_PRINTF
 	printf("start ...\r\n");
 #endif
+
+    // Configure pin 3.2 as GPIO output
+    P3_DIR_PU &= 0x00;
+    P3_MOD_OC = P1_MOD_OC & ~(1<<LED_PIN);
+    P3_DIR_PU = P1_DIR_PU |	(1<<LED_PIN);
 	
 	USBDeviceCfg();
 	USBDeviceEndPointCfg();											   //端点配置
@@ -809,6 +818,12 @@ main()
 				printf("will boot to iap??1\r\n");
 				bootloader();
 				while(1);
+			}
+			// 串口接收到s后，点灯
+			if(SBUF == 's')
+			{
+				printf("recv s, will change led! %d\r\n", LED);
+				LED = !LED;
 			}
 		}
 		if(UsbConfig)
